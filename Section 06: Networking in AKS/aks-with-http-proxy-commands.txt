@@ -1,0 +1,125 @@
+#Create proxy-vm environment (done from the Azure Portal)
+
+ssh azureuser@<proxy-vm-public-ip>
+
+wget <mitmproxy.org-binary> #access https://mitmproxy.org/ -> Other Downloads -> copy link of "Download Linux Binaries"
+
+tar -xvf <mitmproxy-binary> #extract the binaries
+
+./mitmproxy #start the proxy; this is also needed to generate the certificates
+
+curl example.com
+
+curl example.com --proxy http://127.0.0.1:8080
+
+#Create aks-vnet (done from the Azure Portal)
+
+#Peer the proxy-vm-vnet and the aks-vnet (done from the Azure Portal)
+
+vim aks-proxy-config.json #fill the below proxy configuration file with the above values; for noProxy feel free to add whatever you needed
+
+{
+  "httpProxy": "http://<proxy-vm-private-ip>:8080/", 
+  "httpsProxy": "https://<proxy-vm-private-ip>:8080/", 
+  "noProxy": [
+    "localhost",
+    "127.0.0.1"
+  ],
+  "trustedCA": "<proxy-certificate>"
+}
+
+cat ~/.mitmproxy/mitmproxy-ca-cert.pem | base64 -w0 #encode the mitmproxy CA certificate in base64 format without line breaks
+
+hostname -i #obtain proxy VM's private IP address
+
+resourceGroup=aks-proxy-rg
+
+clusterName=aks-proxy
+
+az aks create -n $clusterName -g $resourceGroup --vnet-subnet-id <vnet-subnet-id> --http-proxy-config aks-proxy-config.json -c 2 --service-cidr 192.168.0.0/16 --dns-service-ip 192.168.0.10 --network-plugin kubenet
+
+az aks get-credentials -n $clusterName -g $resourceGroup
+
+k get node
+
+k node-shell <node-name>
+
+curl ifconfig.me #this will use the proxy to get to the Internet
+
+curl ifconfig.me --noproxy "*" #this will disable the proxy usage for this command only and will use the Load Balancer to get to the Internet
+
+#open the Options (SHIFT+O) of the mitmproxy and update the block_list with:
+
+:~d docker.io:404
+
+k create deploy nginx --image nginx
+
+k get pod -o wide
+
+k describe pod <nginx-pod>
+
+az aks show -n $clusterName -g $resourceGroup --query httpProxyConfig
+
+#Update the aks-proxy-config.json file to add docker.io in noProxy
+
+vim aks-proxy-config.json
+
+az aks update -n $clusterName -g $resourceGroup --http-proxy-config aks-proxy-config.json
+
+az aks show -n $clusterName -g $resourceGroup --query httpProxyConfig
+
+k get pod
+
+k describe pod <nginx-pod>
+
+k get pod
+
+k delete pod <nginx-pod>
+
+k get pod
+
+k describe pod <nginx-pod>
+
+k scale deploy nginx --replicas 2 #try again to create a pod that should pull from Docker and see it fails
+
+k get pod -o wide
+
+az aks nodepool add -g $resourceGroup --cluster-name $clusterName --name nodepool2 -c 2
+
+k get node
+
+k cordon <nodes-part-of-the-initial-nodepool> #we cordon the nodes of the initial node pool
+
+k rollout restart deployment nginx #to recreate the pods; they will get scheduled on the new nodes because the old ones are cordoned
+
+k get pod -o wide
+
+k describe pod <nginx-pod>
+
+k uncordon <nodes-part-of-the-initial-nodepool>
+
+k get node
+
+k node-shell <old-node>
+
+k node-shell <new-node>
+
+env
+
+cat /etc/environment
+
+cat /etc/systemd/system.conf.d/proxy.conf
+
+cat /etc/apt/apt.conf.d/95proxy
+
+ssh azureuser@<proxy-vm-public-ip>
+
+openssl x509 -in /etc/ssl/certs/proxyCA.pem -noout -text
+
+curl example.com #from proxy-vm
+
+curl example.com --proxy http://127.0.0.1:8080 #from proxy-vm
+
+curl example.com #from AKS node
+
+curl example.com --noproxy "*" #from AKS node
