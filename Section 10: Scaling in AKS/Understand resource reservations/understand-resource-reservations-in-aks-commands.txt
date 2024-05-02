@@ -1,0 +1,38 @@
+k get node
+
+k describe node | grep -e Hostname: -e cpu: -e Capacity: -e Allocatable: -e 'Kubelet Version' -e pods: 
+k describe node | grep -e Hostname: -e memory: -e Capacity: -e Allocatable: -e 'Kubelet Version' -e pods: 
+
+kubectl proxy 
+curl -sSL "http://localhost:8001/api/v1/nodes/<node-name>/proxy/configz" | grep -i kubeReserved 
+
+Standard_DS2_v2: 2 vCPU, 7 GiB Memory
+
+GB (gigabyte) - traditional, metric style of measurement with 1 GB equaling 1,000³ bytes 
+GiB (gibibyte) - the binary method of measuring data at 1024³ bytes 
+1 GB (gigabyte)= 0.93132257461548 Gi (gibibyte) 
+
+MB (Megabyte), Mi (Mebibyte)
+KB (Kilobyte), Ki (Kibibyte)
+GB (Gigabyte), Gi (Gibibyte)
+
+aks-nodepool129a-41579953-vmss000000: 1.29, 110 pods, 2 vCPU, 7 Gi Memory
+aks-nodepool128-15354286-vmss000000: 1.28, 110 pods, 2 vCPU, 7 Gi Memory
+aks-nodepool129b-20314040-vmss000000: 1.29, 15 pods, 2 vCPU, 7 Gi Memory
+
+Memory ≤ 1.28: 
+aks-nodepool128-15354286-vmss000000: (25% of 4 GB) + (20% of 3 GB) + 750Mi (eviction threshold) = 1 GB + 0.6 GB + 0.75 Gi = 1.6 GB + 0.75 Gi = ~2.35 GB reserved
+7 Gi - ~2.35 Gi = ~4.65 Gi Allocatable 
+
+Memory ≥ 1.29: 
+aks-nodepool129a-41579953-vmss000000: 
+(20 MB * 110) + 50 MB + 100 Mi (eviction threshold) = 2.2 GB + 50 MB + 100 Mi = 2.25 GB + 100 Mi = ~2.35 GB
+or
+(25% of 7 GB) + 100 Mi = 1.75 GB + 100 Mi (eviction threshold) = ~1.85 GB (this is lower) 
+7 Gi - ~1.85 GB = ~5.15 GB Allocatable 
+
+aks-nodepool129b-20314040-vmss000000:
+(20 MB * 15) + 50 MB + 100 Mi (eviction threshold) = 0.3 GB + 50 MB + 100 Mi = 0.35 GB + 100 Mi = ~0.45 GB (this is lower)
+or 
+(25% of 7 GB) + 100 Mi (eviction threshold) = 1.75 GB + ~100 Mi = ~1.85 GB 
+7 Gi - ~0.45 GB = ~6.55 GB Allocatable 
